@@ -89,6 +89,8 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
     private ArrayList<String> macDeviceScanned = new ArrayList<>();
     private boolean allowDuplicates = false;
 
+    private static volatile boolean canWrite = true;
+
     /** Plugin registration. */
     public static void registerWith(Registrar registrar) {
         if (instance == null) {
@@ -442,6 +444,11 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
 
             case "writeCharacteristic":
             {
+                if (!canWrite) {
+                    result.success(false);
+                    break;
+                }
+                canWrite = false;
                 byte[] data = call.arguments();
                 Protos.WriteCharacteristicRequest request;
                 try {
@@ -478,7 +485,13 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     return;
                 }
 
-                result.success(null);
+                result.success(true);
+                break;
+            }
+
+            case "canWriteCharacteristic":
+            {
+                result.success(canWrite == true);
                 break;
             }
 
@@ -889,6 +902,7 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             log(LogLevel.DEBUG, "[onCharacteristicWrite] uuid: " + characteristic.getUuid().toString() + " status: " + status);
+            canWrite = true;
             Protos.WriteCharacteristicRequest.Builder request = Protos.WriteCharacteristicRequest.newBuilder();
             request.setRemoteId(gatt.getDevice().getAddress());
             request.setCharacteristicUuid(characteristic.getUuid().toString());
